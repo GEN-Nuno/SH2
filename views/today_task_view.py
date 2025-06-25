@@ -18,6 +18,7 @@ class TodayTaskView(QDialog):
         
         self.controller = None
         self.tasks = []
+        self.all_tasks = []  # 全タスクを保持する変数を追加
         self.all_tags = []
         self.show_exceptions = False
         self.add_form_visible = False
@@ -31,6 +32,9 @@ class TodayTaskView(QDialog):
     def set_controller(self, controller):
         """Set the controller for this view"""
         self.controller = controller
+        # コントローラーがセットされたら全タスクも取得
+        if self.controller:
+            self.all_tasks = self.controller.model.tasks
     
     def set_tasks(self, tasks):
         """Set the tasks to display"""
@@ -71,56 +75,21 @@ class TodayTaskView(QDialog):
         self.main_layout.addWidget(self.task_table)
         
         # Add task form (initially hidden)
-        self.add_form_group = QGroupBox("新しいタスク")
+        self.add_form_group = QGroupBox("タスクの追加")
         self.add_form_layout = QVBoxLayout(self.add_form_group)
         
-        # Task name
-        name_layout = QHBoxLayout()
-        name_layout.addWidget(QLabel("タスク名:"))
-        self.task_name_edit = QLineEdit()
-        name_layout.addWidget(self.task_name_edit)
-        self.add_form_layout.addLayout(name_layout)
+        # タスク選択用ドロップダウン
+        task_selection_layout = QHBoxLayout()
+        task_selection_layout.addWidget(QLabel("選択するタスク:"))
+        self.task_selection_combo = QComboBox()
+        self.task_selection_combo.setMinimumWidth(300)
+        task_selection_layout.addWidget(self.task_selection_combo)
+        self.add_form_layout.addLayout(task_selection_layout)
         
-        # Status
-        status_layout = QHBoxLayout()
-        status_layout.addWidget(QLabel("状態:"))
-        self.status_combo = QComboBox()
-        self.status_combo.addItems(["working", "planned", "closed"])
-        status_layout.addWidget(self.status_combo)
-        self.add_form_layout.addLayout(status_layout)
-        
-        # Days
-        days_layout = QHBoxLayout()
-        days_layout.addWidget(QLabel("曜日:"))
-        self.day_checkboxes = {}
-        
-        for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Free"]:
-            checkbox = QCheckBox(day)
-            if day == "Free" or day == datetime.now().strftime("%A"):
-                checkbox.setChecked(True)
-            days_layout.addWidget(checkbox)
-            self.day_checkboxes[day] = checkbox
-        
-        self.add_form_layout.addLayout(days_layout)
-        
-        # Tags
-        tags_layout = QHBoxLayout()
-        tags_layout.addWidget(QLabel("タグ:"))
-        self.tags_combo = QComboBox()
-        tags_layout.addWidget(self.tags_combo)
-        self.add_form_layout.addLayout(tags_layout)
-        
-        # Task details
-        details_layout = QHBoxLayout()
-        details_layout.addWidget(QLabel("詳細:"))
-        self.details_edit = QTextEdit()
-        details_layout.addWidget(self.details_edit)
-        self.add_form_layout.addLayout(details_layout)
-        
-        # Add task button
+        # ボタン
         add_button_layout = QHBoxLayout()
         add_task_button = QPushButton("追加")
-        add_task_button.clicked.connect(self.add_new_task)
+        add_task_button.clicked.connect(self.add_existing_task)
         add_button_layout.addWidget(add_task_button)
         
         cancel_add_button = QPushButton("キャンセル")
@@ -203,20 +172,25 @@ class TodayTaskView(QDialog):
     
     def update_tags_combo(self):
         """Update the tags combo box with available tags"""
-        current_text = self.tags_combo.currentText() if self.tags_combo.count() > 0 else ""
-        
-        self.tags_combo.clear()
-        self.tags_combo.addItems(self.all_tags)
-        
-        # Try to restore previous selection
-        index = self.tags_combo.findText(current_text)
-        if index >= 0:
-            self.tags_combo.setCurrentIndex(index)
+        if hasattr(self, 'tags_combo') and self.tags_combo.count() > 0:
+            current_text = self.tags_combo.currentText()
+            
+            self.tags_combo.clear()
+            self.tags_combo.addItems(self.all_tags)
+            
+            # Try to restore previous selection
+            index = self.tags_combo.findText(current_text)
+            if index >= 0:
+                self.tags_combo.setCurrentIndex(index)
     
     def toggle_exceptions(self, state):
         """Toggle showing exception tasks"""
         self.show_exceptions = (state == Qt.Checked)
         self.update_task_table()
+        
+        # タスク選択ドロップダウンも更新
+        if hasattr(self, 'task_selection_combo'):
+            self.update_task_selection_dropdown()
     
     def toggle_add_form(self):
         """Toggle visibility of add task form"""
@@ -224,50 +198,59 @@ class TodayTaskView(QDialog):
         self.add_form_group.setVisible(self.add_form_visible)
         
         if self.add_form_visible:
-            # Reset form fields
-            self.task_name_edit.clear()
-            self.status_combo.setCurrentIndex(1)  # Default to "planned"
-            self.details_edit.clear()
-            
-            # Set today and Free as checked by default
-            today = datetime.now().strftime("%A")
-            for day, checkbox in self.day_checkboxes.items():
-                checkbox.setChecked(day == "Free" or day == today)
+            # 追加可能なタスクをドロップダウンに表示
+            self.update_task_selection_dropdown()
     
-    def add_new_task(self):
-        """Add a new task based on form input"""
-        if not self.controller:
+    def update_task_selection_dropdown(self):
+        """タスク選択ドロップダウンを更新する"""
+        self.task_selection_combo.clear()
+        
+        # 全タスクから本日のタスク一覧にないタスクを抽出
+        current_task_names = {task.name for task in self.tasks}
+        
+        # 本日の曜日または例外フラグでフィルタリング
+        today = datetime.now().strftime("%A")
+        available_tasks = []
+        
+        for task in self.all_tasks:
+            if task.name in current_task_names:
+                continue  # 既に追加済みのタスクはスキップ
+            
+            # 曜日フィルタリング
+            if self.show_exceptions or today in task.days or "Free" in task.days:
+                available_tasks.append(task)
+        
+        # タスク名をドロップダウンに追加
+        for task in available_tasks:
+            days_str = ", ".join(task.days)
+            display_text = f"{task.name} ({days_str})"
+            self.task_selection_combo.addItem(display_text, task)
+    
+    def add_existing_task(self):
+        """既存タスクを今日のタスクに追加する"""
+        if self.task_selection_combo.count() == 0:
+            QMessageBox.information(self, "情報", "追加可能なタスクがありません。")
             return
         
-        # Get task name
-        task_name = self.task_name_edit.text().strip()
-        if not task_name:
-            QMessageBox.warning(self, "Warning", "タスク名を入力してください。")
+        # 選択されたタスクを取得
+        selected_index = self.task_selection_combo.currentIndex()
+        if selected_index < 0:
+            return
+            
+        selected_task = self.task_selection_combo.itemData(selected_index)
+        
+        if not selected_task:
+            QMessageBox.warning(self, "警告", "タスクが見つかりません。")
             return
         
-        # Get selected days
-        selected_days = [day for day, checkbox in self.day_checkboxes.items() if checkbox.isChecked()]
-        if not selected_days:
-            selected_days = ["Free"]  # Default to Free if none selected
-        
-        # Get selected tag
-        selected_tag = self.tags_combo.currentText()
-        
-        # Create new task
-        new_task = self.controller.create_new_task(
-            name=task_name,
-            status=self.status_combo.currentText(),
-            days=selected_days,
-            details=self.details_edit.toPlainText(),
-            tags=[selected_tag] if selected_tag else []
-        )
-        
-        # Add to model via controller
-        self.controller.add_task(new_task)
-        
-        # Update UI
-        self.toggle_add_form()
-        self.set_tasks(self.controller.get_filtered_tasks())
+        # 今日のタスクリストに追加
+        if selected_task not in self.tasks:
+            self.tasks.append(selected_task)
+            self.update_task_table()
+            self.toggle_add_form()  # フォームを閉じる
+            
+            # ドロップダウン更新のために選択肢を更新
+            self.update_task_selection_dropdown()
     
     def delete_selected_task(self):
         """Delete the selected task"""
@@ -282,18 +265,21 @@ class TodayTaskView(QDialog):
         if row < 0 or row >= len(filtered_tasks):
             return
         
-        # Confirm deletion
+        # タスク削除（今日のリストから除外するだけ）
         task = filtered_tasks[row]
         confirm = QMessageBox.question(
             self, 
-            "Confirm", 
-            f"タスク「{task.name}」を削除しますか？",
+            "確認", 
+            f"タスク「{task.name}」を今日のタスクから除外しますか？",
             QMessageBox.Yes | QMessageBox.No
         )
         
-        if confirm == QMessageBox.Yes and self.controller:
-            self.controller.delete_task(task)
-            self.set_tasks(self.controller.get_filtered_tasks())
+        if confirm == QMessageBox.Yes:
+            self.tasks.remove(task)
+            self.update_task_table()
+            
+            # 選択可能なタスクが変わるのでドロップダウン更新
+            self.update_task_selection_dropdown()
     
     def save_tasks(self):
         """Save all tasks"""

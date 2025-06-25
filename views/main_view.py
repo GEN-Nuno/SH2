@@ -29,7 +29,6 @@ class MainView(QMainWindow, Observer):
         self.calculate_button = None
         self.excel_export_button = None
         self.task_table = None
-    
     def build_header(self):
         """Build the header section with title and navigation buttons"""
         header_layout = QHBoxLayout()
@@ -76,6 +75,7 @@ class MainView(QMainWindow, Observer):
         # Calculation button
         self.calculate_button = QPushButton("計算")
         self.calculate_button.setFont(self.fonts["button"])
+        self.calculate_button.setEnabled(False)  # 最初は無効
         footer_layout.addWidget(self.calculate_button)
         
         # Excel export button (for future implementation)
@@ -126,12 +126,14 @@ class MainView(QMainWindow, Observer):
             self.task_table.setCellWidget(idx, 4, detail_button)
             # Connect to show task detail view
             detail_button.clicked.connect(lambda checked, t=task: self.show_task_detail(t))
+        
+        # 計算ボタンの有効/無効を更新
+        self.update_calculate_button(tasks)
     
     def show_task_detail(self, task):
         """Show task detail in a new window"""
-        from views.task_detail_view import TaskDetailView
-        detail_view = TaskDetailView(self.theme_factory, task)
-        detail_view.show()
+        if hasattr(self, 'task_detail_controller') and self.task_detail_controller:
+            self.task_detail_controller.show_task_detail_view(task, self)
     
     def update(self, subject):
         """Observer pattern update method"""
@@ -140,3 +142,21 @@ class MainView(QMainWindow, Observer):
     def show_error(self, message):
         """Show error message"""
         QMessageBox.critical(self, "Error", message)
+    
+    def update_calculate_button(self, tasks):
+        """タスクの完了状態に基づいて計算ボタンの有効/無効を更新"""
+        if not tasks:
+            self.calculate_button.setEnabled(False)
+            return
+            
+        all_completed = all(task.completed_today for task in tasks)
+        self.calculate_button.setEnabled(all_completed)
+        
+        if all_completed:
+            self.calculate_button.setToolTip("全タスクが完了しているため計算可能です")
+        else:
+            self.calculate_button.setToolTip("計算するには全タスクが完了している必要があります")
+    
+    def set_task_detail_controller(self, controller):
+        """タスク詳細表示用のコントローラーを設定"""
+        self.task_detail_controller = controller

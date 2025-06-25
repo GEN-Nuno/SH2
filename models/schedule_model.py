@@ -32,25 +32,33 @@ class ScheduleModel(Subject):
     
     def get_today_tasks(self, include_exceptions=False):
         """Get tasks for today"""
-        return [task for task in self.tasks if task.is_for_today(include_exceptions)]
+        today = datetime.datetime.now().strftime("%A")
+        if include_exceptions:
+            return self.tasks
+        else:
+            return [task for task in self.tasks if today in task.days or "Free" in task.days]
     
     def add_tag(self, tag):
         """Add a new tag"""
         if tag not in self.tags:
             self.tags.append(tag)
+            self.save_tags()
             self.notify()
     
     def delete_tag(self, tag):
         """Remove a tag"""
         if tag in self.tags:
             self.tags.remove(tag)
+            self.save_tags()
             self.notify()
     
     def save_tasks(self):
         """Save tasks to configuration file"""
         data = [task.to_dict() for task in self.tasks]
+        os.makedirs(os.path.dirname("c:\\SH\\task_Lists.conf"), exist_ok=True)
         with open("c:\\SH\\task_Lists.conf", "w") as file:
             json.dump(data, file, indent=4)
+        return True
     
     def load_tasks(self):
         """Load tasks from configuration file"""
@@ -61,11 +69,14 @@ class ScheduleModel(Subject):
                     self.tasks = [Task.from_dict(task_dict) for task_dict in data]
         except Exception as e:
             print(f"Error loading tasks: {e}")
+            self.tasks = []
     
     def save_tags(self):
         """Save tags to configuration file"""
+        os.makedirs(os.path.dirname("c:\\SH\\tags.conf"), exist_ok=True)
         with open("c:\\SH\\tags.conf", "w") as file:
             json.dump(self.tags, file, indent=4)
+        return True
     
     def load_tags(self):
         """Load tags from configuration file"""
@@ -75,6 +86,7 @@ class ScheduleModel(Subject):
                     self.tags = json.load(file)
         except Exception as e:
             print(f"Error loading tags: {e}")
+            # デフォルトタグを使用
     
     def save_work_time(self, calculated_tasks):
         """Save calculated work time to configuration file"""
@@ -101,8 +113,13 @@ class ScheduleModel(Subject):
                 all_data = []
         
         # Append new data
+        if not isinstance(all_data, list):
+            all_data = []
         all_data.append(data)
         
         # Save back to file
+        os.makedirs(os.path.dirname("c:\\SH\\work_time.conf"), exist_ok=True)
         with open("c:\\SH\\work_time.conf", "w") as file:
             json.dump(all_data, file, indent=4)
+        
+        return True
