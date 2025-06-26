@@ -14,7 +14,7 @@ class TagEditDialog(QDialog):
         self.tags = tags.copy()
         self.controller = controller
         
-        self.setWindowTitle("タグ編集")
+        self.setWindowTitle("Edit Tags")
         self.setMinimumSize(350, 400)
         
         self.setup_ui()
@@ -24,7 +24,7 @@ class TagEditDialog(QDialog):
         layout = QVBoxLayout(self)
         
         # Instructions
-        layout.addWidget(QLabel("タグを追加または削除します:"))
+        layout.addWidget(QLabel("Add or remove tags:"))
         
         # Tag list
         self.tag_list = QListWidget()
@@ -35,17 +35,17 @@ class TagEditDialog(QDialog):
         input_layout = QHBoxLayout()
         
         self.tag_input = QLineEdit()
-        self.tag_input.setPlaceholderText("新しいタグを入力")
+        self.tag_input.setPlaceholderText("Enter new tag")
         input_layout.addWidget(self.tag_input)
         
-        add_button = QPushButton("追加")
+        add_button = QPushButton("Add")
         add_button.clicked.connect(self.add_tag)
         input_layout.addWidget(add_button)
         
         layout.addLayout(input_layout)
         
         # Delete selected tag
-        delete_button = QPushButton("削除")
+        delete_button = QPushButton("Delete")
         delete_button.clicked.connect(self.delete_tag)
         layout.addWidget(delete_button)
         
@@ -56,7 +56,7 @@ class TagEditDialog(QDialog):
         ok_button.clicked.connect(self.save_tags)
         button_layout.addWidget(ok_button)
         
-        cancel_button = QPushButton("キャンセル")
+        cancel_button = QPushButton("Cancel")
         cancel_button.clicked.connect(self.reject)
         button_layout.addWidget(cancel_button)
         
@@ -70,7 +70,7 @@ class TagEditDialog(QDialog):
             return
             
         if new_tag in self.tags:
-            QMessageBox.warning(self, "警告", f"タグ '{new_tag}' はすでに存在します。")
+            QMessageBox.warning(self, "Warning", f"Tag '{new_tag}' already exists.")
             return
             
         self.tags.append(new_tag)
@@ -83,13 +83,13 @@ class TagEditDialog(QDialog):
         selected_items = self.tag_list.selectedItems()
         
         if not selected_items:
-            QMessageBox.information(self, "情報", "削除するタグを選択してください。")
+            QMessageBox.information(self, "Information", "Please select a tag to delete.")
             return
             
         tag = selected_items[0].text()
         
         confirm = QMessageBox.question(
-            self, "確認", f"タグ '{tag}' を削除しますか？",
+            self, "Confirm", f"Delete tag '{tag}'?",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No
         )
         
@@ -100,12 +100,17 @@ class TagEditDialog(QDialog):
     
     def save_tags(self):
         """Save the tags and close the dialog"""
+        # Instead of directly accessing model.tags, use the controller methods
+        current_tags = self.controller.get_all_tags()
+        
+        # Add new tags
         for tag in self.tags:
-            if tag not in self.controller.model.tags:
+            if tag not in current_tags:
                 self.controller.add_tag(tag)
                 
-        for tag in self.controller.model.tags.copy():
+        # Remove deleted tags
+        for tag in current_tags:
             if tag not in self.tags:
                 self.controller.delete_tag(tag)
-        
+    
         self.accept()

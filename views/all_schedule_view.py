@@ -4,11 +4,11 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                             QTextEdit, QComboBox, QCheckBox, QGroupBox,
                             QMessageBox)
 from PyQt5.QtCore import Qt
-from patterns.observer import Observer
+# Remove Observer import
 from models.task_model import Task
-from views.tag_edit_view import TagEditDialog  # Add this import for TagEditDialog
+from views.tag_edit_view import TagEditDialog
 
-class AllScheduleView(QMainWindow, Observer):
+class AllScheduleView(QMainWindow):
     """View for editing all scheduled tasks"""
     
     def __init__(self, theme_factory):
@@ -22,7 +22,7 @@ class AllScheduleView(QMainWindow, Observer):
         self.tasks = []
         self.tags = []
         
-        self.setWindowTitle("全スケジュール編集")
+        self.setWindowTitle("Edit All Schedules")
         self.setMinimumSize(900, 600)
         
         # Central widget
@@ -47,7 +47,7 @@ class AllScheduleView(QMainWindow, Observer):
         """Build the header section"""
         header_layout = QHBoxLayout()
         
-        title_label = QLabel("全スケジュール")
+        title_label = QLabel("All Schedules")
         title_label.setFont(self.fonts["header"])
         header_layout.addWidget(title_label)
         
@@ -58,7 +58,7 @@ class AllScheduleView(QMainWindow, Observer):
         # Task table
         self.task_table = QTableWidget()
         self.task_table.setColumnCount(6)  # Name, Status, Days, Tags, Edit, Delete
-        self.task_table.setHorizontalHeaderLabels(["タスク名", "状態", "曜日", "タグ", "編集", "削除"])
+        self.task_table.setHorizontalHeaderLabels(["Task Name", "Status", "Days", "Tags", "Edit", "Delete"])
         self.task_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.task_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.main_layout.addWidget(self.task_table)
@@ -68,22 +68,22 @@ class AllScheduleView(QMainWindow, Observer):
         button_layout = QHBoxLayout()
         
         # Add task button
-        self.add_button = QPushButton("追加")
+        self.add_button = QPushButton("Add")
         self.add_button.clicked.connect(self.show_add_task_dialog)
         button_layout.addWidget(self.add_button)
         
         # Tags button
-        self.tags_button = QPushButton("タグ")
+        self.tags_button = QPushButton("Tags")
         self.tags_button.clicked.connect(self.show_tags_dialog)
         button_layout.addWidget(self.tags_button)
         
         # Bulk delete button
-        self.bulk_delete_button = QPushButton("一括削除")
+        self.bulk_delete_button = QPushButton("Delete Completed")
         self.bulk_delete_button.clicked.connect(self.delete_closed_tasks)
         button_layout.addWidget(self.bulk_delete_button)
         
         # Save button
-        self.save_button = QPushButton("上書き保存")
+        self.save_button = QPushButton("Save")
         self.save_button.clicked.connect(self.save_tasks)
         button_layout.addWidget(self.save_button)
         
@@ -92,7 +92,7 @@ class AllScheduleView(QMainWindow, Observer):
     def update_task_table(self):
         """Update the task table with current tasks"""
         self.task_table.setRowCount(0)  # Clear existing rows
-        
+
         for idx, task in enumerate(self.tasks):
             self.task_table.insertRow(idx)
             
@@ -159,7 +159,7 @@ class AllScheduleView(QMainWindow, Observer):
     def delete_task(self, task):
         """Delete a single task"""
         confirm = QMessageBox.question(
-            self, "確認", f"タスク '{task.name}' を削除しますか？",
+            self, "Confirm", f"Delete task '{task.name}'?",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No
         )
         
@@ -171,11 +171,11 @@ class AllScheduleView(QMainWindow, Observer):
         """Delete all closed tasks"""
         closed_tasks = [task for task in self.tasks if task.status == "closed"]
         if not closed_tasks:
-            QMessageBox.information(self, "情報", "削除対象のclosedタスクはありません。")
+            QMessageBox.information(self, "Information", "No completed tasks to delete.")
             return
             
         confirm = QMessageBox.question(
-            self, "確認", f"{len(closed_tasks)}件の完了済みタスクを削除しますか？",
+            self, "Confirm", f"Delete {len(closed_tasks)} completed tasks?",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No
         )
         
@@ -193,12 +193,16 @@ class AllScheduleView(QMainWindow, Observer):
     def save_tasks(self):
         """Save all tasks"""
         if self.controller.save_tasks():
-            QMessageBox.information(self, "成功", "タスクが正常に保存されました。")
+            QMessageBox.information(self, "Success", "Tasks saved successfully.")
     
-    def update(self, subject):
-        """Observer pattern update method"""
-        self.tasks = subject.tasks
-        self.tags = subject.tags
+    # Replace Observer update method with controller-driven refresh
+    def refresh_view(self, tasks=None, tags=None):
+        """Refresh the view with data from controller"""
+        if tasks is not None:
+            self.tasks = tasks
+        if tags is not None:
+            self.tags = tags
+            
         self.update_task_table()
 
 class TaskDialog(QDialog):

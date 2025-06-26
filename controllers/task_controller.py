@@ -96,3 +96,24 @@ class TaskController:
             # Also save to regular tasks file for consistency
             self.save_tasks()
         return result
+    
+    def get_all_tasks(self):
+        """Get all tasks from the model"""
+        return self.model.tasks.copy()
+    
+    def get_all_tags(self):
+        """Get all tags from the model"""
+        return self.model.tags.copy()
+    
+    def refresh_all_schedule_view(self, view):
+        """Refresh the all schedule view with current model data"""
+        if view:
+            view.refresh_view(self.get_all_tasks(), self.get_all_tags())
+    
+    def refresh_today_task_view(self, view):
+        """Refresh the today task view with current model data"""
+        if view:
+            # Only get tasks for today
+            today_tasks = self.model.get_today_tasks(include_free=False)
+            view.set_tasks(today_tasks)
+            view.set_tags(self.get_all_tags())

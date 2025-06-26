@@ -84,7 +84,7 @@ class CalculationView(QDialog):
             self.table.setItem(idx, 2, tags_item)
             
             # Calculated time (initially empty)
-            time_item = QTableWidgetItem("Not calculated")
+            time_item = QTableWidgetItem("未計算")  # Changed to Japanese
             time_item.setFlags(time_item.flags() & ~Qt.ItemIsEditable)
             self.table.setItem(idx, 3, time_item)
     

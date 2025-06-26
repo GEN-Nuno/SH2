@@ -29,6 +29,9 @@ class MainController(Observer):
             
             # Connect UI signals to commands
             self.connect_signals()
+            
+            # Initialize view with current data
+            self.refresh_main_view()
         except Exception as e:
             print(f"Error during controller initialization: {e}")
             traceback.print_exc()
@@ -52,15 +55,29 @@ class MainController(Observer):
             traceback.print_exc()
     
     def update(self, subject):
-        """Observer pattern update method"""
+        """Observer pattern update method - Controller receives model updates"""
         if subject == self.model:
             try:
-                # Get today's tasks INCLUDING Free tasks for the main view
-                # We need to include manually added Free tasks in the main view
-                self.main_view.update_today_tasks(self.model.get_today_tasks(include_free=True))
+                # Refresh main view
+                self.refresh_main_view()
+                
+                # Also update any open subsidiary views
+                if hasattr(self, '_all_schedule_view') and self._all_schedule_view.isVisible():
+                    self.task_controller.refresh_all_schedule_view(self._all_schedule_view)
+                    
+                if hasattr(self, '_today_task_view') and self._today_task_view.isVisible():
+                    self.task_controller.refresh_today_task_view(self._today_task_view)
+                    
             except Exception as e:
-                print(f"Error updating main view: {e}")
+                print(f"Error updating views: {e}")
                 traceback.print_exc()
+    
+    def refresh_main_view(self):
+        """Refresh the main view with current model data"""
+        # Get today's tasks INCLUDING Free tasks
+        today_tasks = self.model.get_today_tasks(include_free=True)
+        # Pass tasks to the view for display
+        self.main_view.refresh_view(today_tasks)
     
     def show_main_view(self):
         """Show the main application window"""
@@ -99,13 +116,17 @@ class MainController(Observer):
             director = Director(builder)
             view = director.construct()
             
-            # Set up view with controller and data
+            # Set up view with controller and data through controller
             view.set_controller(self.task_controller)
-            view.set_tags(self.model.tags)
-            view.set_tasks(self.model.tasks)
             
-            # Store reference to prevent garbage collection
+            # Refresh view with data from the controller
+            self.task_controller.refresh_all_schedule_view(view)
+            
+            # Connect to model updates
+            # Store reference to the view for later refresh
             self._all_schedule_view = view
+            
+            # Show the view
             view.show()
         except Exception as e:
             QMessageBox.critical(self.main_view, "Error", f"Failed to open All Schedule view: {str(e)}")

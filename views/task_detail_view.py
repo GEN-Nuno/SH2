@@ -16,11 +16,11 @@ class TaskDetailView(QDialog):
         self.task = task
         self.controller = controller
         
-        self.setWindowTitle(f"Task Detail: {task.name}")
+        self.setWindowTitle(f"Task Details: {task.name}")
         self.setMinimumSize(500, 400)
         
         self.setup_ui()
-    
+
     def setup_ui(self):
         """Set up the UI components"""
         layout = QVBoxLayout(self)
@@ -36,8 +36,11 @@ class TaskDetailView(QDialog):
         # Task status
         form_layout.addWidget(QLabel("Status:"), 1, 0)
         self.status_combo = QComboBox()
-        self.status_combo.addItems(["working", "planned", "closed"])
-        self.status_combo.setCurrentText(self.task.status)
+        self.status_combo.addItems(["Working", "Planned", "Completed"])
+        
+        # Map for internal values to UI
+        status_map = {"working": "Working", "planned": "Planned", "closed": "Completed"}
+        self.status_combo.setCurrentText(status_map.get(self.task.status, "Planned"))
         form_layout.addWidget(self.status_combo, 1, 1)
         
         # Days
@@ -45,11 +48,21 @@ class TaskDetailView(QDialog):
         days_layout = QHBoxLayout(days_group)
         self.day_checkboxes = {}
         
-        for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Free"]:
-            checkbox = QCheckBox(day)
-            checkbox.setChecked(day in self.task.days)
+        # Map for days
+        day_names = {
+            "Monday": "Monday",
+            "Tuesday": "Tuesday",
+            "Wednesday": "Wednesday",
+            "Thursday": "Thursday",
+            "Friday": "Friday",
+            "Free": "Free"
+        }
+        
+        for day_en, day_ui in day_names.items():
+            checkbox = QCheckBox(day_ui)
+            checkbox.setChecked(day_en in self.task.days)
             days_layout.addWidget(checkbox)
-            self.day_checkboxes[day] = checkbox
+            self.day_checkboxes[day_en] = checkbox
         
         form_layout.addWidget(days_group, 2, 0, 1, 2)
         
@@ -83,22 +96,28 @@ class TaskDetailView(QDialog):
         button_layout.addWidget(cancel_button)
         
         layout.addLayout(button_layout)
-    
+
     def save_task(self):
         """Save task changes"""
         if not self.controller:
             self.reject()
             return
         
-        # Get selected days
-        selected_days = [day for day, checkbox in self.day_checkboxes.items() if checkbox.isChecked()]
+        # Convert status from UI to internal value
+        status_map = {"Working": "working", "Planned": "planned", "Completed": "closed"}
+        
+        selected_days = []
+        for day_en, checkbox in self.day_checkboxes.items():
+            if checkbox.isChecked():
+                selected_days.append(day_en)
+                
         if not selected_days:
             selected_days = ["Free"]  # Default to Free if no days selected
         
         # Update task attributes
         attributes = {
             "name": self.name_edit.text(),
-            "status": self.status_combo.currentText(),
+            "status": status_map.get(self.status_combo.currentText(), "planned"),
             "days": selected_days,
             "completed_today": self.completed_check.isChecked(),
             "perceived_effort": int(self.effort_edit.text() or 0),

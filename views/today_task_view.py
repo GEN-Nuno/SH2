@@ -23,7 +23,7 @@ class TodayTaskView(QDialog):
         self.show_exceptions = False
         self.add_form_visible = False
         
-        self.setWindowTitle("本日のタスク編集")
+        self.setWindowTitle("Edit Today's Tasks")
         self.setMinimumSize(800, 600)
         
         # Main layout
@@ -32,10 +32,10 @@ class TodayTaskView(QDialog):
     def set_controller(self, controller):
         """Set the controller for this view"""
         self.controller = controller
-        # コントローラーがセットされたら全タスクも取得
+        # Get all tasks through the controller instead of directly from model
         if self.controller:
-            self.all_tasks = self.controller.model.tasks
-    
+            self.all_tasks = self.controller.get_all_tasks()
+
     def set_tasks(self, tasks):
         """Set the tasks to display"""
         self.tasks = tasks
@@ -50,12 +50,12 @@ class TodayTaskView(QDialog):
         header_layout = QHBoxLayout()
         
         # Title
-        title_label = QLabel("本日のタスク編集")
+        title_label = QLabel("Edit Today's Tasks")
         title_label.setFont(self.fonts["header"])
         header_layout.addWidget(title_label)
         
         # Exception checkbox
-        self.exception_checkbox = QCheckBox("例外を表示 (他曜日のタスクも表示)")
+        self.exception_checkbox = QCheckBox("Show exceptions (Tasks from other days)")
         self.exception_checkbox.setChecked(self.show_exceptions)
         self.exception_checkbox.stateChanged.connect(self.toggle_exceptions)
         header_layout.addWidget(self.exception_checkbox)
@@ -70,29 +70,29 @@ class TodayTaskView(QDialog):
         self.task_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.task_table.setSelectionMode(QTableWidget.SingleSelection)
         self.task_table.setColumnCount(5)
-        self.task_table.setHorizontalHeaderLabels(["タスク名", "状態", "曜日", "タグ", "詳細"])
+        self.task_table.setHorizontalHeaderLabels(["Task Name", "Status", "Days", "Tags", "Details"])
         self.task_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.main_layout.addWidget(self.task_table)
         
         # Add task form (initially hidden)
-        self.add_form_group = QGroupBox("タスクの追加")
+        self.add_form_group = QGroupBox("Add Task")
         self.add_form_layout = QVBoxLayout(self.add_form_group)
         
-        # タスク選択用ドロップダウン
+        # Task selection dropdown
         task_selection_layout = QHBoxLayout()
-        task_selection_layout.addWidget(QLabel("選択するタスク:"))
+        task_selection_layout.addWidget(QLabel("Select Task:"))
         self.task_selection_combo = QComboBox()
         self.task_selection_combo.setMinimumWidth(300)
         task_selection_layout.addWidget(self.task_selection_combo)
         self.add_form_layout.addLayout(task_selection_layout)
         
-        # ボタン
+        # Buttons
         add_button_layout = QHBoxLayout()
-        add_task_button = QPushButton("追加")
+        add_task_button = QPushButton("Add")
         add_task_button.clicked.connect(self.add_existing_task)
         add_button_layout.addWidget(add_task_button)
         
-        cancel_add_button = QPushButton("キャンセル")
+        cancel_add_button = QPushButton("Cancel")
         cancel_add_button.clicked.connect(self.toggle_add_form)
         add_button_layout.addWidget(cancel_add_button)
         
@@ -107,22 +107,22 @@ class TodayTaskView(QDialog):
         button_layout = QHBoxLayout()
         
         # Add button
-        add_button = QPushButton("追加")
+        add_button = QPushButton("Add")
         add_button.clicked.connect(self.toggle_add_form)
         button_layout.addWidget(add_button)
         
         # Delete button
-        delete_button = QPushButton("削除")
+        delete_button = QPushButton("Delete")
         delete_button.clicked.connect(self.delete_selected_task)
         button_layout.addWidget(delete_button)
         
         # Save button
-        save_button = QPushButton("保存")
+        save_button = QPushButton("Save")
         save_button.clicked.connect(self.save_tasks)
         button_layout.addWidget(save_button)
         
         # Close button
-        close_button = QPushButton("閉じる")
+        close_button = QPushButton("Close")
         close_button.clicked.connect(self.close)
         button_layout.addWidget(close_button)
         
@@ -233,9 +233,9 @@ class TodayTaskView(QDialog):
             self.task_selection_combo.addItem(display_text, task)
     
     def add_existing_task(self):
-        """既存タスクを今日のタスクに追加する"""
+        """Add an existing task to today's tasks"""
         if self.task_selection_combo.count() == 0:
-            QMessageBox.information(self, "情報", "追加可能なタスクがありません。")
+            QMessageBox.information(self, "Information", "No tasks available to add.")
             return
         
         # 選択されたタスクを取得
@@ -246,7 +246,7 @@ class TodayTaskView(QDialog):
         selected_task = self.task_selection_combo.itemData(selected_index)
         
         if not selected_task:
-            QMessageBox.warning(self, "警告", "タスクが見つかりません。")
+            QMessageBox.warning(self, "Warning", "Task not found.")
             return
         
         # 今日のタスクリストに追加
@@ -262,7 +262,7 @@ class TodayTaskView(QDialog):
         """Delete the selected task"""
         selected_rows = self.task_table.selectionModel().selectedRows()
         if not selected_rows:
-            QMessageBox.warning(self, "Warning", "タスクを選択してください。")
+            QMessageBox.warning(self, "Warning", "Please select a task.")
             return
         
         row = selected_rows[0].row()
@@ -271,12 +271,12 @@ class TodayTaskView(QDialog):
         if row < 0 or row >= len(filtered_tasks):
             return
         
-        # タスク削除（今日のリストから除外するだけ）
+        # Ask for confirmation
         task = filtered_tasks[row]
         confirm = QMessageBox.question(
             self, 
-            "確認", 
-            f"タスク「{task.name}」を今日のタスクから除外しますか？",
+            "Confirm", 
+            f"Remove task '{task.name}' from today's tasks?",
             QMessageBox.Yes | QMessageBox.No
         )
         
@@ -288,9 +288,9 @@ class TodayTaskView(QDialog):
             if self.controller:
                 self.controller.model.notify()
             
-            QMessageBox.information(self, "Success", "タスクが除外されました。")
+            QMessageBox.information(self, "Success", "Task removed.")
             
-            # 選択可能なタスクが変わるのでドロップダウン更新
+            # Update dropdown with available tasks
             self.update_task_selection_dropdown()
     
     def save_tasks(self):
@@ -301,6 +301,5 @@ class TodayTaskView(QDialog):
             
             # Also save today's tasks specifically with date
             if self.controller.save_today_tasks(self.tasks):
-                # Explicitly notify model observers to update the main view
-                self.controller.model.notify()
-                QMessageBox.information(self, "Success", "タスクが保存されました。")
+                # No need to directly notify the model - controller will handle it
+                QMessageBox.information(self, "Success", "Tasks saved successfully.")

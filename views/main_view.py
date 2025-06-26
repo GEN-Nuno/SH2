@@ -3,11 +3,10 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton,
                             QTableWidgetItem, QComboBox, QSpinBox, QCheckBox,
                             QMessageBox, QHeaderView)
 from PyQt5.QtCore import Qt, QDate, QTimer
-from patterns.observer import Observer
 import locale
 from datetime import datetime
 
-class MainView(QMainWindow, Observer):
+class MainView(QMainWindow):
     """Main view of the scheduler application"""
     
     def __init__(self, theme_factory):
@@ -58,11 +57,11 @@ class MainView(QMainWindow, Observer):
         # Navigation buttons
         button_layout = QHBoxLayout()
         
-        self.today_task_button = QPushButton("本日のタスク")
+        self.today_task_button = QPushButton("Today's Tasks")
         self.today_task_button.setFont(self.fonts["button"])
         button_layout.addWidget(self.today_task_button)
         
-        self.all_schedule_button = QPushButton("全スケジュール")
+        self.all_schedule_button = QPushButton("All Schedules")
         self.all_schedule_button.setFont(self.fonts["button"])
         button_layout.addWidget(self.all_schedule_button)
         
@@ -73,14 +72,14 @@ class MainView(QMainWindow, Observer):
     def build_content(self):
         """Build the main content section with today's tasks"""
         # Today's tasks group
-        tasks_group = QGroupBox("本日のタスクウィンドウ")
+        tasks_group = QGroupBox("Today's Tasks Window")
         tasks_group.setFont(self.fonts["normal"])
         tasks_layout = QVBoxLayout(tasks_group)
         
         # Task table
         self.task_table = QTableWidget()
         self.task_table.setColumnCount(5)
-        self.task_table.setHorizontalHeaderLabels(["タスク名", "状態", "体感", "本日完了", "確認"])
+        self.task_table.setHorizontalHeaderLabels(["Task Name", "Status", "Effort", "Completed", "Details"])
         self.task_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         tasks_layout.addWidget(self.task_table)
         
@@ -91,13 +90,13 @@ class MainView(QMainWindow, Observer):
         footer_layout = QHBoxLayout()
         
         # Calculation button
-        self.calculate_button = QPushButton("計算")
+        self.calculate_button = QPushButton("Calculate")
         self.calculate_button.setFont(self.fonts["button"])
         self.calculate_button.setEnabled(False)  # 最初は無効
         footer_layout.addWidget(self.calculate_button)
         
         # Excel export button (for future implementation)
-        self.excel_export_button = QPushButton("EXCEL出力")
+        self.excel_export_button = QPushButton("EXCEL Export")
         self.excel_export_button.setFont(self.fonts["button"])
         self.excel_export_button.setEnabled(False)  # Disabled as per requirement
         footer_layout.addWidget(self.excel_export_button)
@@ -119,9 +118,15 @@ class MainView(QMainWindow, Observer):
             
             # Status (dropdown)
             status_combo = QComboBox()
-            status_combo.addItems(["working", "planned", "closed"])
-            status_combo.setCurrentText(task.status)
-            status_combo.currentTextChanged.connect(lambda text, t=task: self.update_task_attribute(t, "status", text))
+            status_combo.addItems(["Working", "Planned", "Completed"])
+            # Map UI labels to internal values
+            status_map = {"Working": "working", "Planned": "planned", "Completed": "closed"}
+            reverse_map = {"working": "Working", "planned": "Planned", "closed": "Completed"}
+            
+            status_combo.setCurrentText(reverse_map.get(task.status, "Planned"))
+            status_combo.currentTextChanged.connect(
+                lambda text, t=task: self.update_task_attribute(t, "status", status_map.get(text, "planned"))
+            )
             self.task_table.setCellWidget(idx, 1, status_combo)
             
             # Perceived effort (spinbox)
@@ -143,7 +148,7 @@ class MainView(QMainWindow, Observer):
             self.task_table.setCellWidget(idx, 3, check_widget)
             
             # Detail button
-            detail_button = QPushButton("詳細")
+            detail_button = QPushButton("Details")
             self.task_table.setCellWidget(idx, 4, detail_button)
             # Connect to show task detail view
             detail_button.clicked.connect(lambda checked, t=task: self.show_task_detail(t))
@@ -165,37 +170,36 @@ class MainView(QMainWindow, Observer):
         if hasattr(self, 'task_detail_controller'):
             self.task_detail_controller.show_task_detail_view(task, self)
     
-    def update(self, subject):
-        """Observer pattern update method"""
+    # Remove the Observer.update method and replace with a method the controller can call
+    def refresh_view(self, tasks):
+        """Refresh the view with the provided tasks"""
         try:
-            # Get latest tasks from model - including Free tasks
-            today_tasks = subject.get_today_tasks(include_free=True)
-            self.update_today_tasks(today_tasks)
+            self.update_today_tasks(tasks)
             # Update calculate button status based on latest tasks
-            self.update_calculate_button(today_tasks)
+            self.update_calculate_button(tasks)
         except Exception as e:
-            print(f"Error in MainView update: {e}")
+            print(f"Error in MainView refresh: {e}")
             import traceback
             traceback.print_exc()
 
     def show_error(self, message):
         """Show error message"""
         QMessageBox.critical(self, "Error", message)
-    
+
     def update_calculate_button(self, tasks):
-        """タスクの完了状態に基づいて計算ボタンの有効/無効を更新"""
+        """Update the calculate button based on task completion status"""
         if not tasks:
             self.calculate_button.setEnabled(False)
-            self.calculate_button.setToolTip("本日のタスクがありません")
+            self.calculate_button.setToolTip("No tasks for today")
             return
             
         all_completed = all(task.completed_today for task in tasks)
         self.calculate_button.setEnabled(all_completed)
         
         if all_completed:
-            self.calculate_button.setToolTip("全タスクが完了しているため計算可能です")
+            self.calculate_button.setToolTip("All tasks are completed, calculation enabled")
         else:
-            self.calculate_button.setToolTip("計算するには全タスクが完了している必要があります")
+            self.calculate_button.setToolTip("Complete all tasks to enable calculation")
     
     def set_task_detail_controller(self, controller):
         """タスク詳細表示用のコントローラーを設定"""
@@ -204,18 +208,21 @@ class MainView(QMainWindow, Observer):
     def update_date_label(self):
         """Update the date label with current date information"""
         today = datetime.now()
-        # Format: 2023年6月26日 (月曜日)
-        date_format = today.strftime("%Y年%m月%d日 (%A)")
+        # Format: June 26, 2023 (Monday)
+        date_format = today.strftime("%B %d, %Y (%A)")
         
-        # Convert English day of week to Japanese
+        if self.date_label:
+            self.date_label.setText(date_format)
+        
+        # English to Japanese day-of-week mapping
         dow_map = {
-            'Monday': '月曜日',
-            'Tuesday': '火曜日',
-            'Wednesday': '水曜日',
-            'Thursday': '木曜日',
-            'Friday': '金曜日',
-            'Saturday': '土曜日',
-            'Sunday': '日曜日'
+            'Monday': 'Monday',
+            'Tuesday': 'Tuesday',
+            'Wednesday': 'Wednesday',
+            'Thursday': 'Thursday',
+            'Friday': 'Friday',
+            'Saturday': 'Saturday',
+            'Sunday': 'Sunday'
         }
         
         for eng, jpn in dow_map.items():
