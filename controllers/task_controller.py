@@ -48,6 +48,7 @@ class TaskController:
             # The properties could be used to update UI elements
         
         self.model.notify()
+        return True
     
     def save_tasks(self):
         """Save all tasks to configuration file"""
@@ -76,5 +77,10 @@ class TaskController:
         
         theme_factory = LightThemeFactory()
         detail_view = TaskDetailView(theme_factory, task, self)
-        detail_view.exec_()
+        result = detail_view.exec_()
+        
+        # If the dialog was accepted, notify model observers
+        if result == detail_view.Accepted:
+            self.model.notify()
+        
         return True

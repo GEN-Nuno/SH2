@@ -90,14 +90,16 @@ class ScheduleModel(Subject):
     
     def save_work_time(self, calculated_tasks):
         """Save calculated work time to configuration file"""
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        # Use full ISO format to include date and time
+        today_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         data = {
-            "date": today,
+            "date": today_date,
             "tasks": [
                 {
                     "name": task.name,
                     "tags": task.tags,
-                    "work_time": task.calculated_work_time
+                    "work_time": task.calculated_work_time,
+                    "perceived_effort": task.perceived_effort
                 }
                 for task in calculated_tasks
             ]

@@ -29,6 +29,7 @@ class MainView(QMainWindow, Observer):
         self.calculate_button = None
         self.excel_export_button = None
         self.task_table = None
+    
     def build_header(self):
         """Build the header section with title and navigation buttons"""
         header_layout = QHBoxLayout()
@@ -103,17 +104,20 @@ class MainView(QMainWindow, Observer):
             status_combo = QComboBox()
             status_combo.addItems(["working", "planned", "closed"])
             status_combo.setCurrentText(task.status)
+            status_combo.currentTextChanged.connect(lambda text, t=task: self.update_task_attribute(t, "status", text))
             self.task_table.setCellWidget(idx, 1, status_combo)
             
             # Perceived effort (spinbox)
             effort_spin = QSpinBox()
             effort_spin.setRange(0, 100)
             effort_spin.setValue(task.perceived_effort)
+            effort_spin.valueChanged.connect(lambda value, t=task: self.update_task_attribute(t, "perceived_effort", value))
             self.task_table.setCellWidget(idx, 2, effort_spin)
             
             # Completed today (checkbox)
             completed_check = QCheckBox()
             completed_check.setChecked(task.completed_today)
+            completed_check.stateChanged.connect(lambda state, t=task: self.update_task_attribute(t, "completed_today", state == Qt.Checked))
             check_widget = QWidget()
             check_layout = QHBoxLayout(check_widget)
             check_layout.addWidget(completed_check)
@@ -130,15 +134,28 @@ class MainView(QMainWindow, Observer):
         # 計算ボタンの有効/無効を更新
         self.update_calculate_button(tasks)
     
+    def update_task_attribute(self, task, attribute, value):
+        """Update a task attribute and notify the model"""
+        if hasattr(task, attribute):
+            setattr(task, attribute, value)
+            if hasattr(self, 'task_detail_controller'):
+                self.task_detail_controller.model.notify()
+            # Update calculate button state after attribute change
+            self.update_calculate_button(self.task_detail_controller.get_filtered_tasks() if hasattr(self, 'task_detail_controller') else [])
+    
     def show_task_detail(self, task):
         """Show task detail in a new window"""
-        if hasattr(self, 'task_detail_controller') and self.task_detail_controller:
+        if hasattr(self, 'task_detail_controller'):
             self.task_detail_controller.show_task_detail_view(task, self)
     
     def update(self, subject):
         """Observer pattern update method"""
-        self.update_today_tasks(subject.get_today_tasks())
-    
+        # Get latest tasks from model
+        today_tasks = subject.get_today_tasks()
+        self.update_today_tasks(today_tasks)
+        # Update calculate button status based on latest tasks
+        self.update_calculate_button(today_tasks)
+
     def show_error(self, message):
         """Show error message"""
         QMessageBox.critical(self, "Error", message)
@@ -147,6 +164,7 @@ class MainView(QMainWindow, Observer):
         """タスクの完了状態に基づいて計算ボタンの有効/無効を更新"""
         if not tasks:
             self.calculate_button.setEnabled(False)
+            self.calculate_button.setToolTip("本日のタスクがありません")
             return
             
         all_completed = all(task.completed_today for task in tasks)

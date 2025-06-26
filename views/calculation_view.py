@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QLineEdit, QTableWidget, QTableWidgetItem,
                             QHeaderView, QMessageBox, QDoubleSpinBox)
-from PyQt5.QtCore import Qt, QObject, pyqtSignal
+from PyQt5.QtCore import Qt
 
 class CalculationView(QDialog):
     """View for calculating and displaying work time distribution"""
@@ -92,14 +92,32 @@ class CalculationView(QDialog):
         """Calculate work time distribution based on perceived effort"""
         total_work_time = self.work_time_input.value()
         
-        # Use the controller to perform calculation
-        calculated_tasks = self.controller.calculate_work_time(self.tasks, total_work_time)
-        
-        # Update the table with calculated values
-        for idx, task in enumerate(calculated_tasks):
-            time_item = QTableWidgetItem(f"{task.calculated_work_time:.2f}")
-            time_item.setFlags(time_item.flags() & ~Qt.ItemIsEditable)
-            self.table.setItem(idx, 3, time_item)
+        try:
+            # Check for valid input
+            if total_work_time <= 0:
+                QMessageBox.warning(self, "Warning", "Please enter a valid work time")
+                return
+                
+            # Ensure there are tasks with perceived effort
+            total_effort = sum(task.perceived_effort for task in self.tasks)
+            
+            if total_effort == 0:
+                # If all tasks have 0 effort, distribute time equally
+                equal_time = total_work_time / len(self.tasks)
+                for task in self.tasks:
+                    task.calculated_work_time = equal_time
+            else:
+                # Use the controller to perform calculation
+                self.controller.calculate_work_time(self.tasks, total_work_time)
+            
+            # Update the table with calculated values
+            for idx, task in enumerate(self.tasks):
+                time_item = QTableWidgetItem(f"{task.calculated_work_time:.2f}")
+                time_item.setFlags(time_item.flags() & ~Qt.ItemIsEditable)
+                self.table.setItem(idx, 3, time_item)
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Calculation error: {str(e)}")
     
     def save_results(self):
         """Save the calculation results"""

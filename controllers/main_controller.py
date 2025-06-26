@@ -24,6 +24,9 @@ class MainController(Observer):
             self.task_controller = TaskController(model)
             self.calculation_controller = CalculationController(model)
             
+            # Set the task controller in main view for task details
+            self.main_view.set_task_detail_controller(self.task_controller)
+            
             # Connect UI signals to commands
             self.connect_signals()
         except Exception as e:
@@ -73,6 +76,9 @@ class MainController(Observer):
             view.set_controller(self.task_controller)
             view.set_tags(self.model.tags)
             view.set_tasks(self.model.get_today_tasks())
+            
+            # Connect a signal when the dialog is accepted/closed
+            view.finished.connect(lambda result: self.model.notify())
             
             # Store reference to prevent garbage collection
             self._today_task_view = view

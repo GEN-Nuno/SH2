@@ -205,15 +205,18 @@ class TodayTaskView(QDialog):
         """タスク選択ドロップダウンを更新する"""
         self.task_selection_combo.clear()
         
+        if not self.controller or not self.all_tasks:
+            return
+        
         # 全タスクから本日のタスク一覧にないタスクを抽出
-        current_task_names = {task.name for task in self.tasks}
+        current_task_ids = {id(task) for task in self.tasks}
         
         # 本日の曜日または例外フラグでフィルタリング
         today = datetime.now().strftime("%A")
         available_tasks = []
         
         for task in self.all_tasks:
-            if task.name in current_task_names:
+            if id(task) in current_task_ids:
                 continue  # 既に追加済みのタスクはスキップ
             
             # 曜日フィルタリング
@@ -283,5 +286,8 @@ class TodayTaskView(QDialog):
     
     def save_tasks(self):
         """Save all tasks"""
-        if self.controller and self.controller.save_tasks():
-            QMessageBox.information(self, "Success", "タスクが保存されました。")
+        if self.controller:
+            if self.controller.save_tasks():
+                # Explicitly notify model observers to update the main view
+                self.controller.model.notify()
+                QMessageBox.information(self, "Success", "タスクが保存されました。")

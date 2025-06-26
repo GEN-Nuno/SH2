@@ -1,6 +1,7 @@
 from patterns.strategy import ProportionalTimeCalculation
 from views.calculation_view import CalculationView
 from views.builders.theme_factory import LightThemeFactory
+from datetime import datetime
 
 class CalculationController:
     """Controller for handling work time calculations"""
@@ -19,8 +20,14 @@ class CalculationController:
     
     def save_work_time(self, calculated_tasks):
         """Save calculated work time to configuration file"""
-        self.model.save_work_time(calculated_tasks)
-        return True
+        try:
+            result = self.model.save_work_time(calculated_tasks)
+            # Notify observers after saving
+            self.model.notify()
+            return result
+        except Exception as e:
+            print(f"Error saving work time: {e}")
+            return False
     
     def show_calculation_view(self, tasks):
         """Show the calculation view for the given tasks"""
@@ -30,5 +37,5 @@ class CalculationController:
         
         theme_factory = LightThemeFactory()
         view = CalculationView(theme_factory, tasks, self)
-        view.show()
+        view.exec_()  # Use exec_ to make it modal
         return True

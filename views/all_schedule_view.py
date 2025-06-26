@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import Qt
 from patterns.observer import Observer
 from models.task_model import Task
+from views.tag_edit_view import TagEditDialog  # Add this import for TagEditDialog
 
 class AllScheduleView(QMainWindow, Observer):
     """View for editing all scheduled tasks"""
