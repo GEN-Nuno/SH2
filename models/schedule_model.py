@@ -30,13 +30,22 @@ class ScheduleModel(Subject):
         self.tasks = [task for task in self.tasks if task.status != "closed"]
         self.notify()
     
-    def get_today_tasks(self, include_exceptions=False):
-        """Get tasks for today"""
+    def get_today_tasks(self, include_exceptions=False, include_free=True):  # Default to including Free tasks
+        """
+        Get tasks for today
+        
+        Args:
+            include_exceptions: If True, return all tasks regardless of day
+            include_free: If True, also include tasks with 'Free' attribute
+        """
         today = datetime.datetime.now().strftime("%A")
         if include_exceptions:
             return self.tasks
         else:
-            return [task for task in self.tasks if today in task.days or "Free" in task.days]
+            if include_free:
+                return [task for task in self.tasks if today in task.days or "Free" in task.days]
+            else:
+                return [task for task in self.tasks if today in task.days]
     
     def add_tag(self, tag):
         """Add a new tag"""
@@ -122,6 +131,36 @@ class ScheduleModel(Subject):
         # Save back to file
         os.makedirs(os.path.dirname("c:\\SH\\work_time.conf"), exist_ok=True)
         with open("c:\\SH\\work_time.conf", "w") as file:
+            json.dump(all_data, file, indent=4)
+        
+        return True
+    
+    def save_today_tasks(self, tasks):
+        """Save today's tasks to todaytask.conf with date information"""
+        today_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        data = {
+            "date": today_date,
+            "tasks": [task.to_dict() for task in tasks]
+        }
+        
+        # Load existing data if file exists
+        all_data = []
+        if os.path.exists("c:\\SH\\todaytask.conf"):
+            try:
+                with open("c:\\SH\\todaytask.conf", "r") as file:
+                    all_data = json.load(file)
+                    if not isinstance(all_data, list):
+                        all_data = []
+            except Exception as e:
+                print(f"Error loading today tasks: {e}")
+                all_data = []
+        
+        # Append new data
+        all_data.append(data)
+        
+        # Save back to file
+        os.makedirs(os.path.dirname("c:\\SH\\todaytask.conf"), exist_ok=True)
+        with open("c:\\SH\\todaytask.conf", "w") as file:
             json.dump(all_data, file, indent=4)
         
         return True

@@ -34,7 +34,8 @@ class Task:
             "details": self.details,
             "tags": self.tags,
             "completed_today": self.completed_today,
-            "perceived_effort": self.perceived_effort
+            "perceived_effort": self.perceived_effort,
+            "save_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
     
     @classmethod

@@ -78,7 +78,7 @@ class MainController(Observer):
             # Only load tasks for today's day of week, NOT Free tasks (they will be available for manual addition)
             view.set_controller(self.task_controller)
             view.set_tags(self.model.tags)
-            view.set_tasks(self.model.get_today_tasks(include_free=True))
+            view.set_tasks(self.model.get_today_tasks(include_free=False))
             
             # Connect a signal when the dialog is accepted/closed
             view.finished.connect(lambda result: self.model.notify())

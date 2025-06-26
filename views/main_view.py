@@ -2,8 +2,10 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton,
                             QLabel, QGroupBox, QHBoxLayout, QTableWidget,
                             QTableWidgetItem, QComboBox, QSpinBox, QCheckBox,
                             QMessageBox, QHeaderView)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QDate, QTimer
 from patterns.observer import Observer
+import locale
+from datetime import datetime
 
 class MainView(QMainWindow, Observer):
     """Main view of the scheduler application"""
@@ -29,10 +31,24 @@ class MainView(QMainWindow, Observer):
         self.calculate_button = None
         self.excel_export_button = None
         self.task_table = None
+        self.date_label = None
+        
+        # Set up timer for date updates
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_date_label)
+        self.timer.start(3600000)  # Update every hour
     
     def build_header(self):
         """Build the header section with title and navigation buttons"""
         header_layout = QHBoxLayout()
+        
+        # Date label (top left)
+        self.date_label = QLabel()
+        self.date_label.setFont(self.fonts["normal"])
+        self.update_date_label()  # Set initial date
+        header_layout.addWidget(self.date_label)
+        
+        header_layout.addStretch(1)  # Add stretch to push title to center
         
         # Title
         title_label = QLabel("Task Scheduler")
@@ -50,6 +66,7 @@ class MainView(QMainWindow, Observer):
         self.all_schedule_button.setFont(self.fonts["button"])
         button_layout.addWidget(self.all_schedule_button)
         
+        header_layout.addStretch(1)  # Add stretch to push buttons to right
         header_layout.addLayout(button_layout)
         self.main_layout.addLayout(header_layout)
     
@@ -150,11 +167,16 @@ class MainView(QMainWindow, Observer):
     
     def update(self, subject):
         """Observer pattern update method"""
-        # Get latest tasks from model
-        today_tasks = subject.get_today_tasks()
-        self.update_today_tasks(today_tasks)
-        # Update calculate button status based on latest tasks
-        self.update_calculate_button(today_tasks)
+        try:
+            # Get latest tasks from model - including Free tasks
+            today_tasks = subject.get_today_tasks(include_free=True)
+            self.update_today_tasks(today_tasks)
+            # Update calculate button status based on latest tasks
+            self.update_calculate_button(today_tasks)
+        except Exception as e:
+            print(f"Error in MainView update: {e}")
+            import traceback
+            traceback.print_exc()
 
     def show_error(self, message):
         """Show error message"""
@@ -178,3 +200,26 @@ class MainView(QMainWindow, Observer):
     def set_task_detail_controller(self, controller):
         """タスク詳細表示用のコントローラーを設定"""
         self.task_detail_controller = controller
+
+    def update_date_label(self):
+        """Update the date label with current date information"""
+        today = datetime.now()
+        # Format: 2023年6月26日 (月曜日)
+        date_format = today.strftime("%Y年%m月%d日 (%A)")
+        
+        # Convert English day of week to Japanese
+        dow_map = {
+            'Monday': '月曜日',
+            'Tuesday': '火曜日',
+            'Wednesday': '水曜日',
+            'Thursday': '木曜日',
+            'Friday': '金曜日',
+            'Saturday': '土曜日',
+            'Sunday': '日曜日'
+        }
+        
+        for eng, jpn in dow_map.items():
+            date_format = date_format.replace(eng, jpn)
+        
+        if self.date_label:
+            self.date_label.setText(date_format)

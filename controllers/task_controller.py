@@ -84,3 +84,15 @@ class TaskController:
             self.model.notify()
         
         return True
+
+    def get_today_tasks(self, include_free=False):
+        """Get tasks for today, with option to include Free tasks"""
+        return self.model.get_today_tasks(include_free=include_free)
+    
+    def save_today_tasks(self, tasks):
+        """Save today's tasks to configuration file"""
+        result = self.model.save_today_tasks(tasks)
+        if result:
+            # Also save to regular tasks file for consistency
+            self.save_tasks()
+        return result

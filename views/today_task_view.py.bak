@@ -225,7 +225,9 @@ class TodayTaskView(QDialog):
             if "Free" in task.days or (self.show_exceptions or today in task.days):
                 available_tasks.append(task)
         
-        # タスク名をドロップダウンに追加
+        # タスク名をドロップダウンに追加（Free優先で表示）
+        # Sort to show Free tasks at the top of the dropdown
+        available_tasks.sort(key=lambda t: "Free" not in t.days)
         
         for task in available_tasks:
             days_str = ", ".join(task.days)
